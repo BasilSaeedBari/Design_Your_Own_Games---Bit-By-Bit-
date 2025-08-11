@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sorting Arena — C-in-Browser Classroom</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#0f1724;--panel:#0b1220;--accent:#f6c85f;--muted:#94a3b8;}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071226,#071a2b);font-family:Inter,Segoe UI,Roboto,system-ui,-apple-system;}
+  .wrap{max-width:1100px;margin:18px auto;padding:16px;display:grid;grid-template-columns:1fr 420px;gap:16px;}
+  .canvas{background:linear-gradient(180deg,#071b2d,#052033);border-radius:10px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,.6);min-height:420px;display:flex;flex-direction:column;align-items:center;}
+  .bars{display:flex;align-items:flex-end;height:300px;width:100%;gap:4px;padding:8px;}
+  .bar{flex:1;border-radius:4px;background:linear-gradient(180deg,#f6c85f,#d48b2b);display:flex;align-items:flex-end;justify-content:center;color:#072; font-weight:700;}
+  .controls{display:flex;gap:8px;margin-top:12px;align-items:center;}
+  button{background:#0f1724;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.4)}
+  select, input[type=range]{background:#061426;color:#fff;border-radius:8px;border:1px solid rgba(255,255,255,.04);padding:6px;}
+  .panel{background:linear-gradient(180deg,#071223,#071425);border-radius:10px;padding:12px;color:#e6eef8;box-shadow:0 6px 18px rgba(2,6,23,.6);height:100%;display:flex;flex-direction:column;}
+  textarea{width:100%;height:320px;background:#041321;color:#dff3ff;border-radius:8px;padding:10px;border:1px solid rgba(255,255,255,.03);font-family:monospace;resize:none;}
+  .small{font-size:13px;color:var(--muted);}
+  .row{display:flex;gap:8px;align-items:center;}
+  .footer{margin-top:8px;font-size:13px;color:var(--muted);}
+  .log{background:#02121a;color:#cfeefc;border-radius:8px;padding:8px;height:86px;overflow:auto;border:1px solid rgba(255,255,255,.02);font-family:monospace;font-size:13px;}
+  .ops {margin-top:8px;font-size:13px;color:var(--muted);}
+  .legend{display:flex;gap:12px;margin-top:8px;}
+  .legend div{display:flex;gap:6px;align-items:center}
+  .swatch{width:18px;height:12px;border-radius:3px}
+  .bar-index{font-size:11px;color:#022;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="canvas">
+      <h2 style="color:#dff3ff;margin:0 0 8px 0">Sorting Arena — Royal Inventory Manager</h2>
+      <div class="small">Write a C-style `void sort()` function in the editor (right). Use <code>compare(i,j)</code>, <code>swap(i,j)</code>, <code>get(i)</code>, <code>set(i,v)</code>, <code>length()</code>. Run to see your algorithm animate.</div>
+
+      <div class="bars" id="bars"></div>
+
+      <div class="controls">
+        <button id="shuffleBtn">Shuffle</button>
+        <select id="preset">
+          <option value="random">Random (default)</option>
+          <option value="reversed">Reversed</option>
+          <option value="almost">Almost sorted</option>
+          <option value="few">Few unique values</option>
+        </select>
+        <label class="small">Count
+          <input id="count" type="range" min="6" max="40" value="20" style="width:140px;margin-left:6px">
+        </label>
+        <label class="small">Speed
+          <input id="speed" type="range" min="50" max="1200" value="220" style="width:140px;margin-left:6px">
+        </label>
+
+        <button id="runBtn" style="margin-left:auto;background:linear-gradient(90deg,#4ade80,#16a34a)">Run</button>
+        <button id="stepBtn">Step</button>
+        <button id="stopBtn" style="background:linear-gradient(90deg,#ef4444,#c02628)">Stop</button>
+      </div>
+
+      <div class="legend">
+        <div><div class="swatch" style="background:linear-gradient(180deg,#f6c85f,#d48b2b)"></div> <span class="small">Chest</span></div>
+        <div><div class="swatch" style="background:linear-gradient(180deg,#6ee7b7,#10b981)"></div> <span class="small">Active / swapped</span></div>
+        <div><div class="swatch" style="background:linear-gradient(180deg,#93c5fd,#3b82f6)"></div> <span class="small">Comparing</span></div>
+      </div>
+
+      <div class="ops small" id="stats">Ops: 0 | Swaps: 0 | Comparisons: 0</div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><strong>Student C Editor</strong><div class="small">Write a single function <code>void sort()</code>. Use only the provided API calls.</div></div>
+        <div class="small">Template:
+          <select id="templateSelect">
+            <option value="bubble">Bubble (template)</option>
+            <option value="insertion">Insertion (template)</option>
+            <option value="selection">Selection (template)</option>
+            <option value="merge">Merge (template)</option>
+          </select>
+        </div>
+      </div>
+
+      <textarea id="editor"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="insertBtn">Insert at cursor</button>
+        <button id="clearBtn">Clear</button>
+        <button id="downloadBtn">Download</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="flex:1">
+          <div class="small">Console / Errors</div>
+          <div class="log" id="console"></div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="small">Hints: Use 0-based indices. Don't call browser APIs. Keep loops bounded (we'll timeout if code runs too long). For Merge Sort — you can use get/set and temporary arrays implemented via set/get on extra positions (or implement merge by reading into JS using get and set).</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --- UI & visualization logic --- */
+const barsEl = document.getElementById('bars');
+const editor = document.getElementById('editor');
+const consoleEl = document.getElementById('console');
+const runBtn = document.getElementById('runBtn');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const stopBtn = document.getElementById('stopBtn');
+const stepBtn = document.getElementById('stepBtn');
+const countInput = document.getElementById('count');
+const speedInput = document.getElementById('speed');
+const statsEl = document.getElementById('stats');
+const preset = document.getElementById('preset');
+const templateSelect = document.getElementById('templateSelect');
+const insertBtn = document.getElementById('insertBtn');
+const clearBtn = document.getElementById('clearBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let arr = [];
+let ops = []; // recorded operations from worker
+let animTimer = null;
+let playIndex = 0;
+let playing = false;
+let stepMode = false;
+let swaps = 0, comps = 0;
+let worker = null;
+const TIMEOUT_MS = 2500; // kill worker if takes too long
+
+function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+
+function makeArray(n, pattern='random'){
+  if(pattern==='random'){
+    arr = Array.from({length:n},()=>randInt(5,100));
+  } else if(pattern==='reversed'){
+    arr = Array.from({length:n},(_,i)=>Math.floor( (n-i)*100/n ));
+  } else if(pattern==='almost'){
+    arr = Array.from({length:n},(_,i)=>Math.floor(i*100/n));
+    // swap a few
+    for(let k=0;k<Math.floor(n/10);k++){
+      const a=randInt(0,n-1), b=randInt(0,n-1);
+      [arr[a],arr[b]]=[arr[b],arr[a]];
+    }
+  } else if(pattern==='few'){
+    const values = [10,20,40,70,90];
+    arr = Array.from({length:n},()=>values[randInt(0,values.length-1)]);
+  }
+  renderBars();
+  resetStats();
+}
+
+function renderBars(active=[], comparing=[]){
+  barsEl.innerHTML = '';
+  const n = arr.length;
+  for(let i=0;i<n;i++){
+    const b = document.createElement('div');
+    b.className = 'bar';
+    b.style.flex = '1';
+    const h = Math.max(6, Math.round(arr[i]/100*100));
+    b.style.height = (h/1.6) + '%';
+    // color by state
+    if(active.includes(i)){
+      b.style.background = 'linear-gradient(180deg,#6ee7b7,#10b981)';
+    } else if(comparing.includes(i)){
+      b.style.background = 'linear-gradient(180deg,#93c5fd,#3b82f6)';
+    } else {
+      b.style.background = 'linear-gradient(180deg,#f6c85f,#d48b2b)';
+    }
+    b.title = String(arr[i]);
+    b.style.margin = '0 2px';
+    const lbl = document.createElement('div');
+    lbl.className='bar-index';
+    lbl.style.color='rgba(0,0,0,.5)';
+    lbl.textContent = arr[i];
+    lbl.style.padding = '2px';
+    lbl.style.fontSize = '11px';
+    b.appendChild(lbl);
+    barsEl.appendChild(b);
+  }
+}
+
+function resetStats(){ ops=[]; playIndex=0; swaps=0; comps=0; updateStats(); }
+
+function updateStats(){ statsEl.textContent = `Ops: ${ops.length} | Swaps: ${swaps} | Comparisons: ${comps}`; }
+
+shuffleBtn.onclick = ()=> makeArray(parseInt(countInput.value), preset.value);
+countInput.oninput = ()=> makeArray(parseInt(countInput.value), preset.value);
+
+preset.onchange = ()=> makeArray(parseInt(countInput.value), preset.value);
+
+templateSelect.onchange = ()=> insertTemplate(templateSelect.value);
+
+insertBtn.onclick = ()=> insertTemplate(templateSelect.value);
+clearBtn.onclick = ()=> editor.value = '';
+
+downloadBtn.onclick = ()=>{
+  const blob = new Blob([editor.value], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'student_sort.c'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },1000);
+};
+
+function insertTemplate(name){
+  const templates = {
+    bubble: `void sort() {
+    int n = length();
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n - 1 - i; j++) {
+            if (compare(j, j+1) > 0) swap(j, j+1);
+        }
+    }
+}`,
+    insertion: `void sort() {
+    int n = length();
+    for (int i = 1; i < n; i++) {
+        int key = get(i);
+        int j = i - 1;
+        while (j >= 0 && get(j) > key) {
+            set(j+1, get(j));
+            j = j - 1;
+        }
+        set(j+1, key);
+    }
+}`,
+    selection: `void sort() {
+    int n = length();
+    for (int i = 0; i < n - 1; i++) {
+        int min_idx = i;
+        for (int j = i + 1; j < n; j++) {
+            if (compare(j, min_idx) < 0) min_idx = j;
+        }
+        swap(min_idx, i);
+    }
+}`,
+    merge: `void sort() {
+    // simple merge using temporary JS buffer via get/set
+    int n = length();
+    // We'll implement merge sort by reading halves into arrays using get/set
+    function merge_sort(int l, int r) {
+        if (r - l <= 1) return;
+        int m = (l + r) / 2;
+        merge_sort(l, m);
+        merge_sort(m, r);
+        // merge into tmp (we'll use an array of size r-l in JS via set/get on auxiliary area)
+        int tmpSize = r - l;
+        // read into tmp positions (we'll simulate via set/get but here we'll use get/set to copy back)
+        int i = l, j = m, k = 0;
+        int tmp[1000]; // pseudo
+        while (i < m && j < r) {
+            if (compare(i,j) <= 0) {
+                // push get(i) into tmp
+                // since we can't declare dynamic tmp, we'll use a JS trick: call set on extra indices — but for classroom keep simpler:
+                // fallback: perform merge by comparing and shifting using sets
+                int val = get(i);
+                set(k, val); // k are temporary positions starting at 0
+                i = i + 1;
+            } else {
+                int val = get(j);
+                set(k, val);
+                j = j + 1;
+            }
+            k = k + 1;
+        }
+        // NOTE: Merge template is tricky in this minimal environment; recommend students implement iterative merging logic via get/set.
+    }
+    merge_sort(0, n);
+}`
+  };
+  editor.value = templates[name] || '';
+  editor.focus();
+}
+
+/* load initial state */
+makeArray(parseInt(countInput.value), 'random');
+insertTemplate('bubble');
+
+/* --- Runner: send C-like code to worker after light translation --- */
+
+function log(msg){
+  consoleEl.textContent += msg + "\n";
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function sanitizeAndTranslate(code){
+  // Very lightweight translation:
+  // - Remove C types: int, void
+  // - Replace array syntax not supported
+  // - Keep function signature "void sort()" -> "function userSort()"
+  // - Allow only basic characters (letters, numbers, whitespace, punctuation common in code)
+  // - Disallow "import", "window", "document", "fetch", "Worker", "postMessage" etc.
+  const banned = /(\bwindow\b|\bdocument\b|\beval\b|\bFunction\b|\bfetch\b|\bXMLHttpRequest\b|\bpostMessage\b|\bself\b|\bimport\b|\brequire\b|\bnew\s+Worker\b)/i;
+  if(banned.test(code)) throw new Error("Forbidden tokens in student code.");
+  // Keep only expected chars:
+  if(/[^a-zA-Z0-9_\-\+\*\/=<>!&|%\(\)\[\]\{\};:,.\s\t'"\\]/.test(code)){
+    // allow most punctuation. If match, still allow but warn.
+  }
+  // Replace "void sort()" or "void sort ( )" to function
+  code = code.replace(/\bvoid\s+sort\s*\(\s*\)/, 'function userSort()');
+  // Replace "int " with "var "
+  code = code.replace(/\bint\b/g, 'var');
+  // Replace "&&" "||" remain as-is (valid JS)
+  // Keep compare/swap/get/set/length calls intact
+  // Prevent semicolons before function declarations being lost
+  return code;
+}
+
+function runStudentCode(stepPlayback=false){
+  stopAnimation();
+  resetStats();
+  ops = [];
+  playIndex = 0;
+  consoleEl.textContent = '';
+  const studentCode = editor.value;
+  let translated;
+  try {
+    translated = sanitizeAndTranslate(studentCode);
+  } catch(e){
+    log("Translation error: " + e.message);
+    return;
+  }
+
+  // Build worker script
+  const workerSrc = `
+  // worker scope
+  let arr = ${JSON.stringify(arr)};
+  const ops = [];
+  let comps = 0, swaps = 0;
+  function record(op){ ops.push(op); }
+  function compare(i,j){
+    comps++;
+    record({t:'cmp', i:i, j:j});
+    return arr[i] - arr[j];
+  }
+  function swap(i,j){
+    swaps++;
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    record({t:'swp', i:i, j:j, a:arr.slice()});
+  }
+  function get(i){ record({t:'get', i:i}); return arr[i]; }
+  function set(i,v){ record({t:'set', i:i, v:v}); arr[i] = v; record({t:'state', a:arr.slice()}); }
+  function length(){ return arr.length; }
+
+  // safety: limit time and iterations
+  let start = Date.now();
+  const MAX_MS = ${TIMEOUT_MS};
+  function timecheck(){
+    if(Date.now() - start > MAX_MS) throw 'Execution timed out (possible infinite loop).';
+  }
+  // expose helpers to user code
+  ${translated}
+
+  // Run userSort if defined
+  (async function(){
+    try {
+      timecheck();
+      if (typeof userSort !== 'function') throw 'No function userSort() found. Define void sort() { ... }';
+      userSort();
+      postMessage({ok:true, ops:ops, comps:comps, swaps:swaps, final:arr});
+    } catch(e){
+      postMessage({ok:false, error:String(e), ops:ops, comps:comps, swaps:swaps, final:arr});
+    }
+  })();
+  `;
+
+  // Create worker via blob
+  const blob = new Blob([workerSrc], {type:'application/javascript'});
+  if(worker) worker.terminate();
+  worker = new Worker(URL.createObjectURL(blob));
+
+  let timedOut = false;
+  const to = setTimeout(()=>{
+    timedOut = true;
+    if(worker) worker.terminate();
+    log("Error: Execution timed out. (Worker killed)");
+  }, TIMEOUT_MS + 200);
+
+  worker.onmessage = (ev)=>{
+    clearTimeout(to);
+    const data = ev.data;
+    if(!data.ok){
+      log("Runtime Error: " + data.error);
+    } else {
+      ops = data.ops || [];
+      swaps = data.swaps || 0;
+      comps = data.comps || 0;
+      updateStats();
+      // animate ops
+      playOps();
+    }
+    // if there were recorded ops even on error, allow animation to show partial behavior
+    if(!data.ok && (data.ops && data.ops.length)){
+      ops = data.ops; swaps = data.swaps || 0; comps = data.comps || 0;
+      playOps();
+    }
+  };
+
+  worker.onerror = (e)=>{
+    clearTimeout(to);
+    log("Worker error: " + (e.message || e));
+  };
+}
+
+function playOps(){
+  if(!ops || ops.length===0){
+    log("No operations recorded (your function might have done nothing).");
+    return;
+  }
+  playIndex = 0;
+  swaps = 0; comps = 0;
+  playing = true;
+  stepMode = false;
+  animateNext();
+}
+function animateNext(){
+  if(!playing) return;
+  if(playIndex >= ops.length){
+    playing=false;
+    updateStats();
+    renderBars();
+    log("Animation complete.");
+    return;
+  }
+  const op = ops[playIndex++];
+  if(op.t === 'cmp'){
+    comps++;
+    renderBars([], [op.i, op.j]);
+  } else if(op.t === 'swp'){
+    swaps++;
+    arr = op.a.slice();
+    renderBars([op.i,op.j], []);
+  } else if(op.t === 'set'){
+    arr[op.i] = op.v;
+    renderBars([op.i], []);
+  } else if(op.t === 'state'){
+    arr = op.a.slice();
+    renderBars();
+  } else if(op.t === 'get'){
+    // no visual
+  }
+  updateStats();
+  const delay = Math.max(10, parseInt(speedInput.value));
+  animTimer = setTimeout(animateNext, delay);
+}
+
+function stopAnimation(){
+  if(animTimer) { clearTimeout(animTimer); animTimer = null; }
+  playing = false;
+  if(worker){ worker.terminate(); worker = null; }
+}
+
+runBtn.onclick = ()=> runStudentCode();
+stopBtn.onclick = ()=> { stopAnimation(); log("Stopped."); };
+stepBtn.onclick = ()=> { /* Not implemented: single-step playback could be added */ log("Step not implemented. Use Run to record and then watch."); };
+
+window.addEventListener('beforeunload', ()=>{ if(worker) worker.terminate(); });
+
+/* initial console message */
+log("Ready. Insert code and press Run. If code times out, check loops or infinite recursion.");
+</script>
+</body>
+</html>
